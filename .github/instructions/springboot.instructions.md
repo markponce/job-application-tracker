@@ -11,6 +11,7 @@ applyTo: '**/*.java, **/*.kt'
 - Write code with good maintainability practices, including comments on why certain design decisions were made.
 - Handle edge cases and write clear exception handling.
 - For libraries or external dependencies, mention their usage and purpose in comments.
+- Follow test-driven development for behavior changes: write a focused test first, run it and confirm it fails for the expected reason, implement the smallest change to pass, then refactor with tests green.
 
 ## Spring Boot Instructions
 
@@ -53,7 +54,7 @@ applyTo: '**/*.java, **/*.kt'
 ## Build and Verification
 
 - After adding or modifying code, verify the project continues to build successfully.
-- If the project uses Maven, run `mvn clean package`.
+- If the project uses Maven, use the Maven Wrapper when present (this project uses `./mvnw`) and run the narrowest relevant tests before the full build.
 - If the project uses Gradle, run `./gradlew build` (or `gradlew.bat build` on Windows).
 - Ensure all tests pass as part of the build.
 

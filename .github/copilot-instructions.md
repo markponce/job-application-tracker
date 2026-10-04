@@ -5,5 +5,6 @@
 - Keep configuration externalized in `src/main/resources/application.yaml`; do not commit production credentials or secrets.
 - Use Flyway migrations under `src/main/resources/db/migration` for database schema changes.
 - Put JTE templates under `src/main/jte`.
+- Follow test-driven development: write or update a focused test first, run it to confirm it fails for the intended reason, implement the smallest change to pass, then refactor while keeping tests green.
 - Run the narrowest relevant tests after changes; use `./mvnw test` for the full test suite and `./mvnw package` to verify the build.
 - Follow the path-specific instructions in `.github/instructions/` when editing Spring Boot code, database migrations, templates, build configuration, or Compose configuration.

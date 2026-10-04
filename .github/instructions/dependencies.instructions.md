@@ -20,8 +20,8 @@ Use the versions and dependency scopes in `pom.xml` as the source of truth. Cons
 
 - `compose.yaml` defines the local PostgreSQL service; keep local container configuration there rather than duplicating it unnecessarily in application configuration.
 - Spring Boot Docker Compose support can start Compose services during application development and derive connection details. Confirm this integration is active before adding duplicate datasource settings.
-- Credentials currently in `compose.yaml` are development-only. Use environment variables or a secret manager for non-local environments; never add real secrets to source control.
-- If changing Compose port mappings, account for the host port actually published by Compose when configuring or connecting to PostgreSQL.
+- Compose reads optional local overrides from `.env`; `.env` is ignored by Git and `.env.example` documents the local variables. Defaults in `compose.yaml` are development-only, not production credentials.
+- Keep the PostgreSQL image pinned to a major version rather than `latest`. If changing Compose port mappings, account for the host port actually published by Compose when configuring or connecting to PostgreSQL.
 - Use PostgreSQL-compatible SQL and types in migrations. Official references: [PostgreSQL documentation](https://www.postgresql.org/docs/), [Spring Boot Docker Compose support](https://docs.spring.io/spring-boot/reference/features/dev-services.html#features.dev-services.docker-compose).
 
 ## Flyway
@@ -31,6 +31,14 @@ Use the versions and dependency scopes in `pom.xml` as the source of truth. Cons
 - Keep migration SQL explicit and PostgreSQL-compatible. Review destructive or data-changing operations carefully.
 - This project includes both `flyway-core` and `flyway-database-postgresql`; keep the database-specific module when using Flyway with PostgreSQL.
 - Official references: [Flyway migrations](https://documentation.red-gate.com/flyway/flyway-concepts/migrations), [Flyway PostgreSQL support](https://documentation.red-gate.com/flyway/reference/database-driver-reference/postgresql-database).
+
+## Validation and integration tests
+
+- Spring's validation starter is installed. Use Jakarta Bean Validation constraints on request DTOs and `@Valid` at MVC boundaries where input needs validation.
+- The Spring Boot Testcontainers integration and PostgreSQL Testcontainers module are test-scoped dependencies. Use PostgreSQL containers for tests that need database behavior and mark them with `@ServiceConnection` so Spring Boot configures the connection.
+- Disable Docker Compose integration in a test context that supplies its own Testcontainers database to avoid starting two PostgreSQL services.
+- Apply test-driven development when changing behavior: add a focused regression/behavior test before implementation, confirm the test fails for the expected reason, implement the smallest change, and refactor with tests passing. Use MVC or persistence integration tests at the appropriate boundary.
+- Official references: [Spring Boot validation](https://docs.spring.io/spring-boot/reference/io/validation.html), [Spring Boot Testcontainers](https://docs.spring.io/spring-boot/reference/testing/testcontainers.html), [Testcontainers PostgreSQL module](https://java.testcontainers.org/modules/databases/postgres/).
 
 ## JTE
 

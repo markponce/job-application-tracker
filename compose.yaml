@@ -7,3 +7,18 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-jobtracker}
     ports:
       - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  mailpit:
+    image: 'axllent/mailpit:v1.27'
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    volumes:
+      - mailpit_data:/data
+
+volumes:
+  mailpit_data:
+  postgres_data:

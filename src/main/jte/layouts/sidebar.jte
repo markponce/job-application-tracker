@@ -8,7 +8,7 @@
         @template.partials.navigation(activePage = activePage)
     </div>
     <div class="hidden border-t border-slate-100 px-6 py-5 text-xs leading-5 text-slate-400 lg:block">
-        Personal workspace<br>
-        Account features coming later
+        Your private workspace<br>
+        Applications belong to your account
     </div>
 </aside>

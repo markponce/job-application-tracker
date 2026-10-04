@@ -1,5 +1,7 @@
 @param com.example.job_application_tracker.jobapplication.model.JobApplication application
 @param String successMessage
+@param org.springframework.security.web.csrf.CsrfToken csrfToken
+@param com.example.job_application_tracker.account.AccountProfile accountProfile
 <!doctype html>
 <html lang="en">
 @template.layouts.head(pageTitle = "Application details")
@@ -7,7 +9,7 @@
 <div class="min-h-screen lg:flex">
     @template.layouts.sidebar(activePage = "applications")
     <div class="min-w-0 flex-1">
-        @template.layouts.topbar(pageTitle = "Application details")
+        @template.layouts.topbar(pageTitle = "Application details", csrfToken = csrfToken, accountProfile = accountProfile)
         <main class="mx-auto w-full max-w-7xl p-5 sm:p-8">
 @if(successMessage != null)
     <div class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">${successMessage}</div>
@@ -24,6 +26,7 @@
             <div class="flex gap-2">
                 <a href="/applications/${java.util.Objects.toString(application.getId(), "")}/edit" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Edit</a>
                 <form method="post" action="/applications/${java.util.Objects.toString(application.getId(), "")}/delete" onsubmit="return confirm('Delete this application? This cannot be undone.')">
+                    <input type="hidden" name="${csrfToken.getParameterName()}" value="${csrfToken.getToken()}">
                     <button type="submit" class="rounded-lg border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50">Delete</button>
                 </form>
             </div>

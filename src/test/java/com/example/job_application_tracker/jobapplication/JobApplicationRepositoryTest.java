@@ -1,5 +1,7 @@
 package com.example.job_application_tracker.jobapplication;
 
+import com.example.job_application_tracker.account.UserAccount;
+import com.example.job_application_tracker.account.UserAccountRepository;
 import com.example.job_application_tracker.jobapplication.dto.JobApplicationSearchCriteria;
 import com.example.job_application_tracker.jobapplication.model.ApplicationStatus;
 import com.example.job_application_tracker.jobapplication.model.ExperienceLevel;
@@ -38,9 +40,16 @@ class JobApplicationRepositoryTest {
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
+	@Autowired
+	private UserAccountRepository users;
+
+	private UserAccount owner;
+
 	@BeforeEach
 	void clearApplications() {
 		repository.deleteAll();
+		users.deleteAll();
+		owner = users.save(new UserAccount("owner@example.com", "hash"));
 	}
 
 	@Test
@@ -60,9 +69,9 @@ class JobApplicationRepositoryTest {
 		repository.saveAll(List.of(title, company, url, address, content, notes, wildcard));
 
 		Page<JobApplication> matches = repository.findAll(
-				JobApplicationSpecifications.from(criteria("needle")), PageRequest.of(0, 20));
+				JobApplicationSpecifications.from(criteria("needle"), owner.getId()), PageRequest.of(0, 20));
 		Page<JobApplication> literalWildcardMatches = repository.findAll(
-				JobApplicationSpecifications.from(criteria("%")), PageRequest.of(0, 20));
+				JobApplicationSpecifications.from(criteria("%"), owner.getId()), PageRequest.of(0, 20));
 
 		assertThat(matches.getContent()).hasSize(6);
 		assertThat(literalWildcardMatches.getContent()).containsExactly(wildcard);
@@ -83,7 +92,7 @@ class JobApplicationRepositoryTest {
 				SalaryPeriod.YEARLY, new BigDecimal("120000"), new BigDecimal("130000"));
 
 		Page<JobApplication> results = repository.findAll(
-				JobApplicationSpecifications.from(criteria), PageRequest.of(0, 20));
+				JobApplicationSpecifications.from(criteria, owner.getId()), PageRequest.of(0, 20));
 
 		assertThat(results.getContent()).containsExactly(matching);
 	}
@@ -101,13 +110,13 @@ class JobApplicationRepositoryTest {
 		repository.saveAll(List.of(overlap, belowRange, openEnded));
 
 		Page<JobApplication> bounded = repository.findAll(
-				JobApplicationSpecifications.from(criteria(null, new BigDecimal("110000"), new BigDecimal("140000"))),
+				JobApplicationSpecifications.from(criteria(null, new BigDecimal("110000"), new BigDecimal("140000")), owner.getId()),
 				PageRequest.of(0, 20));
 		Page<JobApplication> minimumOnly = repository.findAll(
-				JobApplicationSpecifications.from(criteria(null, new BigDecimal("85000"), null)),
+				JobApplicationSpecifications.from(criteria(null, new BigDecimal("85000"), null), owner.getId()),
 				PageRequest.of(0, 20));
 		Page<JobApplication> maximumOnly = repository.findAll(
-				JobApplicationSpecifications.from(criteria(null, null, new BigDecimal("85000"))),
+				JobApplicationSpecifications.from(criteria(null, null, new BigDecimal("85000")), owner.getId()),
 				PageRequest.of(0, 20));
 
 		assertThat(bounded.getContent()).containsExactly(overlap);
@@ -123,16 +132,36 @@ class JobApplicationRepositoryTest {
 				application("Three", "Engineer", null, null, null, null)));
 
 		Page<JobApplication> firstPage = repository.findAll(
-				JobApplicationSpecifications.from(criteria(null)),
+				JobApplicationSpecifications.from(criteria(null), owner.getId()),
 				PageRequest.of(0, 2, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))));
 		Page<JobApplication> secondPage = repository.findAll(
-				JobApplicationSpecifications.from(criteria(null)),
+				JobApplicationSpecifications.from(criteria(null), owner.getId()),
 				PageRequest.of(1, 2, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))));
 
 		assertThat(firstPage.getTotalElements()).isEqualTo(3);
 		assertThat(firstPage.getContent()).hasSize(2);
 		assertThat(secondPage.getContent()).hasSize(1);
 		assertThat(firstPage.getContent()).doesNotContainAnyElementsOf(secondPage.getContent());
+	}
+
+	@Test
+	void searchAndIdLookupAreIsolatedByApplicationOwner() {
+		UserAccount otherOwner = users.save(new UserAccount("other@example.com", "hash"));
+		JobApplication mine = application("Shared Company", "Engineer", null, null, null, null);
+		JobApplication theirs = new JobApplication("Shared Company", "Designer", "https://example.com/jobs/2");
+		theirs.setUser(otherOwner);
+		repository.saveAll(List.of(mine, theirs));
+
+		Page<JobApplication> mineResults = repository.findAll(
+				JobApplicationSpecifications.from(criteria("Shared Company"), owner.getId()),
+				PageRequest.of(0, 20));
+		Page<JobApplication> otherResults = repository.findAll(
+				JobApplicationSpecifications.from(criteria("Shared Company"), otherOwner.getId()),
+				PageRequest.of(0, 20));
+
+		assertThat(mineResults.getContent()).containsExactly(mine);
+		assertThat(otherResults.getContent()).containsExactly(theirs);
+		assertThat(repository.findByIdAndUser_Id(theirs.getId(), owner.getId())).isEmpty();
 	}
 
 	@Test
@@ -160,6 +189,7 @@ class JobApplicationRepositoryTest {
 	private JobApplication application(String company, String title, ApplicationStatus status,
 			WorkSetup setup, ExperienceLevel experience, SalaryPeriod period) {
 		JobApplication application = new JobApplication(company, title, "https://example.com/jobs/1");
+		application.setUser(owner);
 		application.setStatus(status == null ? ApplicationStatus.SAVED : status);
 		if (application.getStatus() != ApplicationStatus.SAVED) {
 			application.setAppliedAt(OffsetDateTime.now());

@@ -1,6 +1,7 @@
 package com.example.job_application_tracker;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -8,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import com.example.job_application_tracker.jobapplication.model.JobApplication;
+import com.example.job_application_tracker.account.UserAccount;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -43,6 +45,16 @@ class JobApplicationTrackerApplicationTests {
 
 	@PersistenceContext
 	private EntityManager entityManager;
+	private UUID userId;
+
+	@BeforeEach
+	void createUserForApplicationRows() {
+		userId = UUID.randomUUID();
+		jdbcTemplate.update("""
+				INSERT INTO user_accounts (id, email, password_hash, enabled, first_name, last_name)
+				VALUES (?, ?, 'test-hash', TRUE, 'Test', 'User')
+				""", userId, userId + "@example.com");
+	}
 
 	@Test
 	void contextLoads() {
@@ -51,10 +63,10 @@ class JobApplicationTrackerApplicationTests {
 	@Test
 	void migrationCreatesJobApplicationsWithUuidAndDefaultValues() {
 		Map<String, Object> application = jdbcTemplate.queryForMap("""
-				INSERT INTO job_applications (company_name, title, url)
-				VALUES ('Example Co', 'Engineer', 'https://example.com/jobs/1')
+				INSERT INTO job_applications (user_id, company_name, title, url)
+				VALUES ('%s', 'Example Co', 'Engineer', 'https://example.com/jobs/1')
 				RETURNING id, status, work_setup
-				""");
+				""".formatted(userId));
 
 		assertNotNull(UUID.fromString(application.get("id").toString()));
 		assertEquals("SAVED", application.get("status"));
@@ -64,33 +76,33 @@ class JobApplicationTrackerApplicationTests {
 	@Test
 	void migrationRejectsUnknownApplicationStatus() {
 		assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.update("""
-				INSERT INTO job_applications (company_name, title, url, status)
-				VALUES ('Example Co', 'Engineer', 'https://example.com/jobs/2', 'INVALID')
-				"""));
+				INSERT INTO job_applications (user_id, company_name, title, url, status)
+				VALUES ('%s', 'Example Co', 'Engineer', 'https://example.com/jobs/2', 'INVALID')
+				""".formatted(userId)));
 	}
 
 	@Test
 	void migrationRejectsInvalidWorkSetupExperienceAndSalaryValues() {
 		assertRejected("""
-				INSERT INTO job_applications (company_name, title, url, work_setup)
-				VALUES ('Example Co', 'Engineer', 'https://example.com/jobs/3', 'INVALID')
-				""");
+				INSERT INTO job_applications (user_id, company_name, title, url, work_setup)
+				VALUES ('%s', 'Example Co', 'Engineer', 'https://example.com/jobs/3', 'INVALID')
+				""".formatted(userId));
 		assertRejected("""
-				INSERT INTO job_applications (company_name, title, url, experience_level)
-				VALUES ('Example Co', 'Engineer', 'https://example.com/jobs/4', 'INVALID')
-				""");
+				INSERT INTO job_applications (user_id, company_name, title, url, experience_level)
+				VALUES ('%s', 'Example Co', 'Engineer', 'https://example.com/jobs/4', 'INVALID')
+				""".formatted(userId));
 		assertRejected("""
-				INSERT INTO job_applications (company_name, title, url, salary_period)
-				VALUES ('Example Co', 'Engineer', 'https://example.com/jobs/5', 'WEEKLY')
-				""");
+				INSERT INTO job_applications (user_id, company_name, title, url, salary_period)
+				VALUES ('%s', 'Example Co', 'Engineer', 'https://example.com/jobs/5', 'WEEKLY')
+				""".formatted(userId));
 		assertRejected("""
-				INSERT INTO job_applications (company_name, title, url, salary_min, salary_max)
-				VALUES ('Example Co', 'Engineer', 'https://example.com/jobs/6', 100, 99)
-				""");
+				INSERT INTO job_applications (user_id, company_name, title, url, salary_min, salary_max)
+				VALUES ('%s', 'Example Co', 'Engineer', 'https://example.com/jobs/6', 100, 99)
+				""".formatted(userId));
 		assertRejected("""
-				INSERT INTO job_applications (company_name, title, url, salary_min)
-				VALUES ('Example Co', 'Engineer', 'https://example.com/jobs/7', -1)
-				""");
+				INSERT INTO job_applications (user_id, company_name, title, url, salary_min)
+				VALUES ('%s', 'Example Co', 'Engineer', 'https://example.com/jobs/7', -1)
+				""".formatted(userId));
 	}
 
 	@Test
@@ -134,6 +146,7 @@ class JobApplicationTrackerApplicationTests {
 	void jobApplicationPersistsWithGeneratedIdAndTimestamps() {
 		JobApplication application = new JobApplication("Example Co", "Engineer",
 				"https://example.com/jobs/8");
+		application.setUser(entityManager.find(UserAccount.class, userId));
 
 		entityManager.persist(application);
 		entityManager.flush();

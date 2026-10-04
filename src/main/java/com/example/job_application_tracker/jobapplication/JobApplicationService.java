@@ -1,5 +1,7 @@
 package com.example.job_application_tracker.jobapplication;
 
+import com.example.job_application_tracker.account.UserAccount;
+import com.example.job_application_tracker.account.UserAccountRepository;
 import com.example.job_application_tracker.jobapplication.model.JobApplication;
 import com.example.job_application_tracker.jobapplication.dto.JobApplicationSearchCriteria;
 import jakarta.persistence.EntityNotFoundException;
@@ -8,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -16,33 +17,33 @@ import java.util.UUID;
 public class JobApplicationService {
 
 	private final JobApplicationRepository repository;
+	private final UserAccountRepository users;
 
-	public JobApplicationService(JobApplicationRepository repository) {
+	public JobApplicationService(JobApplicationRepository repository, UserAccountRepository users) {
 		this.repository = repository;
+		this.users = users;
 	}
 
-	public JobApplication create(JobApplication application) {
+	public JobApplication create(String ownerEmail, JobApplication application) {
+		application.setUser(findOwner(ownerEmail));
 		return repository.save(application);
 	}
 
 	@Transactional(readOnly = true)
-	public List<JobApplication> getAll() {
-		return repository.findAll();
+	public Page<JobApplication> search(String ownerEmail, JobApplicationSearchCriteria criteria, Pageable pageable) {
+		UserAccount owner = findOwner(ownerEmail);
+		return repository.findAll(JobApplicationSpecifications.from(criteria, owner.getId()), pageable);
 	}
 
 	@Transactional(readOnly = true)
-	public Page<JobApplication> search(JobApplicationSearchCriteria criteria, Pageable pageable) {
-		return repository.findAll(JobApplicationSpecifications.from(criteria), pageable);
-	}
-
-	@Transactional(readOnly = true)
-	public JobApplication getById(UUID id) {
-		return repository.findById(id)
+	public JobApplication getById(String ownerEmail, UUID id) {
+		UserAccount owner = findOwner(ownerEmail);
+		return repository.findByIdAndUser_Id(id, owner.getId())
 				.orElseThrow(() -> new EntityNotFoundException("Job application not found: " + id));
 	}
 
-	public JobApplication update(UUID id, JobApplication changes) {
-		JobApplication existing = getById(id);
+	public JobApplication update(String ownerEmail, UUID id, JobApplication changes) {
+		JobApplication existing = getById(ownerEmail, id);
 		existing.setCompanyName(changes.getCompanyName());
 		existing.setCompanyAddress(changes.getCompanyAddress());
 		existing.setTitle(changes.getTitle());
@@ -60,7 +61,12 @@ public class JobApplicationService {
 		return repository.save(existing);
 	}
 
-	public void delete(UUID id) {
-		repository.delete(getById(id));
+	public void delete(String ownerEmail, UUID id) {
+		repository.delete(getById(ownerEmail, id));
+	}
+
+	private UserAccount findOwner(String email) {
+		return users.findByEmail(email)
+				.orElseThrow(() -> new IllegalStateException("Authenticated account no longer exists"));
 	}
 }

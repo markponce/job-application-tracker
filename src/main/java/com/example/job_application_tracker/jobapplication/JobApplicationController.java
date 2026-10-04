@@ -1,5 +1,6 @@
 package com.example.job_application_tracker.jobapplication;
 
+import com.example.job_application_tracker.account.AccountProfile;
 import com.example.job_application_tracker.jobapplication.dto.JobApplicationForm;
 import com.example.job_application_tracker.jobapplication.dto.JobApplicationSearchCriteria;
 import com.example.job_application_tracker.jobapplication.dto.PageLink;
@@ -27,6 +28,9 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.security.Principal;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.web.csrf.CsrfToken;
 
 @Controller
 public class JobApplicationController {
@@ -49,6 +53,7 @@ public class JobApplicationController {
 
 	@GetMapping("/applications")
 	public String index(
+			Principal principal,
 			@RequestParam(required = false) String q,
 			@RequestParam(required = false) ApplicationStatus status,
 			@RequestParam(required = false) WorkSetup workSetup,
@@ -63,11 +68,11 @@ public class JobApplicationController {
 		int pageNumber = Math.max(page, 1);
 		JobApplicationSearchCriteria criteria = new JobApplicationSearchCriteria(
 				q, status, workSetup, experienceLevel, salaryPeriod, minSalary, maxSalary);
-		Page<JobApplication> results = service.search(criteria,
+		Page<JobApplication> results = service.search(principal.getName(), criteria,
 				PageRequest.of(pageNumber - 1, pageSize, APPLICATION_SORT));
 		if (results.getTotalPages() > 0 && pageNumber > results.getTotalPages()) {
 			pageNumber = results.getTotalPages();
-			results = service.search(criteria,
+			results = service.search(principal.getName(), criteria,
 					PageRequest.of(pageNumber - 1, pageSize, APPLICATION_SORT));
 		} else if (results.getTotalPages() == 0) {
 			pageNumber = 1;
@@ -110,6 +115,7 @@ public class JobApplicationController {
 
 	@PostMapping("/applications")
 	public String create(
+			Principal principal,
             @Valid @ModelAttribute("form") JobApplicationForm form,
 			BindingResult bindingResult,
             Model model,
@@ -120,47 +126,50 @@ public class JobApplicationController {
 			return "pages/applications/form";
 		}
 
-		service.create(form.toEntity());
+		service.create(principal.getName(), form.toEntity());
 		redirectAttributes.addFlashAttribute("successMessage", "Application created.");
 		return "redirect:/applications";
 	}
 
 	@GetMapping("/applications/{id}")
-	public String show(@PathVariable UUID id, Model model) {
-		model.addAttribute("application", service.getById(id));
+	public String show(Principal principal, @PathVariable UUID id, Model model) {
+		model.addAttribute("application", service.getById(principal.getName(), id));
 		return "pages/applications/show";
 	}
 
 	@GetMapping("/applications/{id}/edit")
-	public String edit(@PathVariable UUID id, Model model) {
-		prepareForm(model, JobApplicationForm.from(service.getById(id)),
+	public String edit(Principal principal, @PathVariable UUID id, Model model) {
+		prepareForm(model, JobApplicationForm.from(service.getById(principal.getName(), id)),
 				"Edit application", "Save changes", id, List.of());
 		return "pages/applications/form";
 	}
 
 	@PostMapping("/applications/{id}")
-	public String update(@PathVariable UUID id, @Valid @ModelAttribute("form") JobApplicationForm form,
+	public String update(Principal principal, @PathVariable UUID id, @Valid @ModelAttribute("form") JobApplicationForm form,
 			BindingResult bindingResult, Model model, RedirectAttributes redirectAttributes) {
 		if (bindingResult.hasErrors()) {
 			prepareForm(model, form, "Edit application", "Save changes", id, errors(bindingResult));
 			return "pages/applications/form";
 		}
 
-		service.update(id, form.toEntity());
+		service.update(principal.getName(), id, form.toEntity());
 		redirectAttributes.addFlashAttribute("successMessage", "Application updated.");
 		return "redirect:/applications/" + id;
 	}
 
 	@PostMapping("/applications/{id}/delete")
-	public String delete(@PathVariable UUID id, RedirectAttributes redirectAttributes) {
-		service.delete(id);
+	public String delete(Principal principal, @PathVariable UUID id, RedirectAttributes redirectAttributes) {
+		service.delete(principal.getName(), id);
 		redirectAttributes.addFlashAttribute("successMessage", "Application deleted.");
 		return "redirect:/applications";
 	}
 
 	@ExceptionHandler(EntityNotFoundException.class)
 	@ResponseStatus(HttpStatus.NOT_FOUND)
-	public String notFound() {
+	public String notFound(HttpServletRequest request, Model model) {
+		Object csrfToken = request.getAttribute(CsrfToken.class.getName());
+		model.addAttribute("csrfToken", csrfToken != null ? csrfToken : request.getAttribute("_csrf"));
+		model.addAttribute("accountProfile", AccountProfile.fromPrincipal(request.getUserPrincipal()));
 		return "pages/errors/404";
 	}
 

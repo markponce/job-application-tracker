@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.util.List;
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -36,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = "spring.docker.compose.enabled=false")
 @AutoConfigureMockMvc
 @Import(JobApplicationControllerTest.PostgresTestConfiguration.class)
+@WithMockUser(username = "owner@example.com")
 class JobApplicationControllerTest {
 
 	@Autowired
@@ -46,8 +49,8 @@ class JobApplicationControllerTest {
 
 	@BeforeEach
 	void stubEmptySearchResults() {
-		when(service.search(any(JobApplicationSearchCriteria.class), any(Pageable.class)))
-				.thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(1), 0));
+		when(service.search(any(String.class), any(JobApplicationSearchCriteria.class), any(Pageable.class)))
+				.thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(2), 0));
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)
@@ -69,7 +72,7 @@ class JobApplicationControllerTest {
 
 	@Test
 	void listDisplaysApplications() throws Exception {
-		when(service.search(any(JobApplicationSearchCriteria.class), any(Pageable.class)))
+		when(service.search(any(String.class), any(JobApplicationSearchCriteria.class), any(Pageable.class)))
 				.thenReturn(new PageImpl<>(List.of(
 						new JobApplication("Example Co", "Engineer", "https://example.com/jobs/1"))));
 
@@ -95,7 +98,7 @@ class JobApplicationControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(view().name("pages/applications/index"));
 
-		verify(service).search(eq(new JobApplicationSearchCriteria(
+		verify(service).search(eq("owner@example.com"), eq(new JobApplicationSearchCriteria(
 				"remote", ApplicationStatus.APPLIED, WorkSetup.HYBRID, ExperienceLevel.SENIOR,
 				SalaryPeriod.YEARLY, new java.math.BigDecimal("90000"), new java.math.BigDecimal("130000"))),
 				eq(PageRequest.of(2, 25, org.springframework.data.domain.Sort.by(
@@ -105,8 +108,8 @@ class JobApplicationControllerTest {
 
 	@Test
 	void unsupportedPageSizeFallsBackToDefaultAndLinksPreserveFilters() throws Exception {
-		when(service.search(any(JobApplicationSearchCriteria.class), any(Pageable.class)))
-				.thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(1), 30));
+		when(service.search(any(String.class), any(JobApplicationSearchCriteria.class), any(Pageable.class)))
+				.thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(2), 30));
 
 		mockMvc.perform(get("/applications")
 						.param("q", "engineer")
@@ -117,7 +120,7 @@ class JobApplicationControllerTest {
 				.andExpect(content().string(org.hamcrest.Matchers.containsString("size=10")))
 				.andExpect(content().string(org.hamcrest.Matchers.containsString("q=engineer&amp;status=APPLIED")));
 
-		verify(service).search(any(JobApplicationSearchCriteria.class),
+		verify(service).search(eq("owner@example.com"), any(JobApplicationSearchCriteria.class),
 				eq(PageRequest.of(1, 10, org.springframework.data.domain.Sort.by(
 						org.springframework.data.domain.Sort.Order.desc("createdAt"),
 						org.springframework.data.domain.Sort.Order.desc("id")))));
@@ -136,6 +139,7 @@ class JobApplicationControllerTest {
 	@Test
 	void validApplicationSubmissionCreatesAndRedirects() throws Exception {
 		mockMvc.perform(post("/applications")
+						.with(csrf())
 						.param("companyName", "Example Co")
 						.param("title", "Engineer")
 						.param("url", "https://example.com/jobs/1")
@@ -144,12 +148,13 @@ class JobApplicationControllerTest {
 				.andExpect(status().is3xxRedirection())
 				.andExpect(redirectedUrl("/applications"));
 
-		verify(service).create(any(JobApplication.class));
+		verify(service).create(eq("owner@example.com"), any(JobApplication.class));
 	}
 
 	@Test
 	void nonSavedApplicationWithoutAppliedAtRendersValidationError() throws Exception {
 		mockMvc.perform(post("/applications")
+						.with(csrf())
 						.param("companyName", "Example Co")
 						.param("title", "Engineer")
 						.param("url", "https://example.com/jobs/1")
@@ -165,6 +170,7 @@ class JobApplicationControllerTest {
 	@Test
 	void invalidCurrencyIsRejectedAndDropdownIsRepopulated() throws Exception {
 		mockMvc.perform(post("/applications")
+						.with(csrf())
 						.param("companyName", "Example Co")
 						.param("title", "Engineer")
 						.param("url", "https://example.com/jobs/1")
@@ -178,6 +184,7 @@ class JobApplicationControllerTest {
 	@Test
 	void invalidApplicationSubmissionRendersFormWithErrors() throws Exception {
 		mockMvc.perform(post("/applications")
+						.with(csrf())
 						.param("companyName", "")
 						.param("title", "")
 						.param("url", ""))
@@ -189,7 +196,7 @@ class JobApplicationControllerTest {
 	@Test
 	void detailPageShowsApplication() throws Exception {
 		UUID id = UUID.randomUUID();
-		when(service.getById(id)).thenReturn(
+		when(service.getById("owner@example.com", id)).thenReturn(
 				new JobApplication("Example Co", "Engineer", "https://example.com/jobs/1"));
 
 		mockMvc.perform(get("/applications/{id}", id))
@@ -201,7 +208,7 @@ class JobApplicationControllerTest {
 	@Test
 	void editPageLoadsApplicationIntoForm() throws Exception {
 		UUID id = UUID.randomUUID();
-		when(service.getById(id)).thenReturn(
+		when(service.getById("owner@example.com", id)).thenReturn(
 				new JobApplication("Example Co", "Engineer", "https://example.com/jobs/1"));
 
 		mockMvc.perform(get("/applications/{id}/edit", id))
@@ -213,6 +220,7 @@ class JobApplicationControllerTest {
 	void updateSubmissionUpdatesAndRedirects() throws Exception {
 		UUID id = UUID.randomUUID();
 		mockMvc.perform(post("/applications/{id}", id)
+						.with(csrf())
 						.param("companyName", "Example Co")
 						.param("title", "Engineer")
 						.param("url", "https://example.com/jobs/1")
@@ -222,16 +230,16 @@ class JobApplicationControllerTest {
 				.andExpect(status().is3xxRedirection())
 				.andExpect(redirectedUrl("/applications/" + id));
 
-		verify(service).update(eq(id), any(JobApplication.class));
+		verify(service).update(eq("owner@example.com"), eq(id), any(JobApplication.class));
 	}
 
 	@Test
 	void deleteSubmissionDeletesAndRedirects() throws Exception {
 		UUID id = UUID.randomUUID();
-		mockMvc.perform(post("/applications/{id}/delete", id))
+		mockMvc.perform(post("/applications/{id}/delete", id).with(csrf()))
 				.andExpect(status().is3xxRedirection())
 				.andExpect(redirectedUrl("/applications"));
 
-		verify(service).delete(id);
+		verify(service).delete("owner@example.com", id);
 	}
 }

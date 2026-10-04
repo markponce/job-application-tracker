@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface JobApplicationRepository extends JpaRepository<JobApplication, UUID>,
 		JpaSpecificationExecutor<JobApplication> {
+
+	java.util.Optional<JobApplication> findByIdAndUser_Id(UUID id, UUID userId);
 }

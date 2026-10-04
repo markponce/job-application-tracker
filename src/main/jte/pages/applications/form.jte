@@ -15,6 +15,8 @@
 @param com.example.job_application_tracker.jobapplication.model.SalaryPeriod[] salaryPeriods
 @param java.util.List<Currency> currencies
 @param java.util.List<String> formErrors
+@param org.springframework.security.web.csrf.CsrfToken csrfToken
+@param com.example.job_application_tracker.account.AccountProfile accountProfile
 <!doctype html>
 <html lang="en">
 @template.layouts.head(pageTitle = pageTitle)
@@ -22,7 +24,7 @@
 <div class="min-h-screen lg:flex">
     @template.layouts.sidebar(activePage = "applications")
     <div class="min-w-0 flex-1">
-        @template.layouts.topbar(pageTitle = pageTitle)
+        @template.layouts.topbar(pageTitle = pageTitle, csrfToken = csrfToken, accountProfile = accountProfile)
         <main class="mx-auto w-full max-w-7xl p-5 sm:p-8">
 <div class="mx-auto max-w-4xl">
     <div class="mb-6">
@@ -40,6 +42,7 @@
         </div>
     @endif
     <form method="post" action="${applicationId == null ? "/applications" : "/applications/" + applicationId}" class="space-y-6">
+        <input type="hidden" name="${csrfToken.getParameterName()}" value="${csrfToken.getToken()}">
         <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
             <h2 class="font-semibold">Role details</h2>
             <p class="mt-1 text-sm text-slate-500">The basics about this opportunity.</p>

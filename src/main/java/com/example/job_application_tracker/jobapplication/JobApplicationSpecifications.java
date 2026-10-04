@@ -10,6 +10,7 @@ import org.springframework.data.jpa.domain.Specification;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 public final class JobApplicationSpecifications {
 
@@ -18,9 +19,10 @@ public final class JobApplicationSpecifications {
 	private JobApplicationSpecifications() {
 	}
 
-	public static Specification<JobApplication> from(JobApplicationSearchCriteria criteria) {
+	public static Specification<JobApplication> from(JobApplicationSearchCriteria criteria, UUID userId) {
 		return (root, query, builder) -> {
 			List<Predicate> predicates = new ArrayList<>();
+			predicates.add(builder.equal(root.get("user").get("id"), userId));
 			if (criteria.query() != null) {
 				String pattern = "%" + escapeLike(criteria.query().toLowerCase(Locale.ROOT)) + "%";
 				predicates.add(builder.or(

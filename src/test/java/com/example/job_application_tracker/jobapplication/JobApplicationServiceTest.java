@@ -1,5 +1,7 @@
 package com.example.job_application_tracker.jobapplication;
 
+import com.example.job_application_tracker.account.UserAccount;
+import com.example.job_application_tracker.account.UserAccountRepository;
 import com.example.job_application_tracker.jobapplication.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,11 +27,17 @@ class JobApplicationServiceTest {
 	@Mock
 	private JobApplicationRepository repository;
 
+	@Mock
+	private UserAccountRepository users;
+
 	private JobApplicationService service;
+	private UserAccount owner;
 
 	@BeforeEach
 	void setUp() {
-		service = new JobApplicationService(repository);
+		service = new JobApplicationService(repository, users);
+		owner = new UserAccount("owner@example.com", "hash");
+		when(users.findByEmail("owner@example.com")).thenReturn(Optional.of(owner));
 	}
 
 	@Test
@@ -37,34 +45,26 @@ class JobApplicationServiceTest {
 		JobApplication application = new JobApplication("Example Co", "Engineer", "https://example.com/job");
 		when(repository.save(application)).thenReturn(application);
 
-		assertSame(application, service.create(application));
+		assertSame(application, service.create("owner@example.com", application));
+		assertSame(owner, application.getUser());
 		verify(repository).save(application);
-	}
-
-	@Test
-	void getAllReturnsAllApplications() {
-		List<JobApplication> applications = List.of(
-				new JobApplication("Example Co", "Engineer", "https://example.com/job"));
-		when(repository.findAll()).thenReturn(applications);
-
-		assertSame(applications, service.getAll());
 	}
 
 	@Test
 	void getByIdReturnsApplicationWhenFound() {
 		UUID id = UUID.randomUUID();
 		JobApplication application = new JobApplication("Example Co", "Engineer", "https://example.com/job");
-		when(repository.findById(id)).thenReturn(Optional.of(application));
+		when(repository.findByIdAndUser_Id(id, null)).thenReturn(Optional.of(application));
 
-		assertSame(application, service.getById(id));
+		assertSame(application, service.getById("owner@example.com", id));
 	}
 
 	@Test
 	void getByIdThrowsWhenApplicationDoesNotExist() {
 		UUID id = UUID.randomUUID();
-		when(repository.findById(id)).thenReturn(Optional.empty());
+		when(repository.findByIdAndUser_Id(id, null)).thenReturn(Optional.empty());
 
-		assertThrows(EntityNotFoundException.class, () -> service.getById(id));
+		assertThrows(EntityNotFoundException.class, () -> service.getById("owner@example.com", id));
 	}
 
 	@Test
@@ -82,10 +82,10 @@ class JobApplicationServiceTest {
 		changes.setSalaryPeriod(SalaryPeriod.YEARLY);
 		changes.setSalaryCurrency("USD");
 		changes.setNotes("Follow up next week");
-		when(repository.findById(id)).thenReturn(Optional.of(existing));
+		when(repository.findByIdAndUser_Id(id, null)).thenReturn(Optional.of(existing));
 		when(repository.save(existing)).thenReturn(existing);
 
-		assertSame(existing, service.update(id, changes));
+		assertSame(existing, service.update("owner@example.com", id, changes));
 		assertEquals("New Co", existing.getCompanyName());
 		assertEquals("Senior Engineer", existing.getTitle());
 		assertEquals("https://example.com/new", existing.getUrl());
@@ -105,19 +105,20 @@ class JobApplicationServiceTest {
 	@Test
 	void updateThrowsWhenApplicationDoesNotExist() {
 		UUID id = UUID.randomUUID();
-		when(repository.findById(id)).thenReturn(Optional.empty());
+		when(repository.findByIdAndUser_Id(id, null)).thenReturn(Optional.empty());
 
 		assertThrows(EntityNotFoundException.class,
-				() -> service.update(id, new JobApplication("Example Co", "Engineer", "https://example.com/job")));
+				() -> service.update("owner@example.com", id,
+						new JobApplication("Example Co", "Engineer", "https://example.com/job")));
 	}
 
 	@Test
 	void deleteRemovesExistingApplication() {
 		UUID id = UUID.randomUUID();
 		JobApplication application = new JobApplication("Example Co", "Engineer", "https://example.com/job");
-		when(repository.findById(id)).thenReturn(Optional.of(application));
+		when(repository.findByIdAndUser_Id(id, null)).thenReturn(Optional.of(application));
 
-		service.delete(id);
+		service.delete("owner@example.com", id);
 
 		verify(repository).delete(application);
 	}

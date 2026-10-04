@@ -27,6 +27,8 @@
 @param String nextPageUrl
 @param java.util.List<PageLink> pageLinks
 @param String successMessage
+@param org.springframework.security.web.csrf.CsrfToken csrfToken
+@param com.example.job_application_tracker.account.AccountProfile accountProfile
 <!doctype html>
 <html lang="en">
 @template.layouts.head(pageTitle = "Applications")
@@ -34,7 +36,7 @@
 <div class="min-h-screen lg:flex">
     @template.layouts.sidebar(activePage = "applications")
     <div class="min-w-0 flex-1">
-        @template.layouts.topbar(pageTitle = "Applications")
+        @template.layouts.topbar(pageTitle = "Applications", csrfToken = csrfToken, accountProfile = accountProfile)
         <main class="mx-auto w-full max-w-7xl p-5 sm:p-8">
 @if(successMessage != null)
     <div class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">${successMessage}</div>

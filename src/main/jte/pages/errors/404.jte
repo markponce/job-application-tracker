@@ -1,3 +1,5 @@
+@param org.springframework.security.web.csrf.CsrfToken csrfToken
+@param com.example.job_application_tracker.account.AccountProfile accountProfile
 <!doctype html>
 <html lang="en">
 @template.layouts.head(pageTitle = "Not found")
@@ -5,7 +7,7 @@
 <div class="min-h-screen lg:flex">
     @template.layouts.sidebar(activePage = "applications")
     <div class="min-w-0 flex-1">
-        @template.layouts.topbar(pageTitle = "Not found")
+        @template.layouts.topbar(pageTitle = "Not found", csrfToken = csrfToken, accountProfile = accountProfile)
         <main class="mx-auto w-full max-w-7xl p-5 sm:p-8">
 <section class="mx-auto max-w-lg rounded-xl border border-slate-200 bg-white px-6 py-14 text-center shadow-sm">
     <p class="text-sm font-semibold uppercase tracking-widest text-indigo-600">404</p>

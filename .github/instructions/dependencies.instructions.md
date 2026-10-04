@@ -48,9 +48,17 @@ Use the versions and dependency scopes in `pom.xml` as the source of truth. Cons
 - `gg.jte.development-mode` is enabled for development; use production-appropriate configuration when deploying.
 - Official reference: [JTE documentation](https://jte.gg/).
 
+## Lombok
+
+- Lombok is an optional compile-time dependency used to reduce repetitive entity accessors and provide the protected JPA no-argument constructor.
+- Prefer narrow annotations such as `@Getter`, `@Setter`, and `@NoArgsConstructor`; do not use `@Data` on JPA entities because generated equality, hash code, and `toString` can interact badly with generated IDs and lazy associations.
+- Do not generate setters for database-generated IDs or timestamps. Keep Lombok out of the packaged runtime artifact.
+- Official reference: [Lombok documentation](https://projectlombok.org/features/).
+
 ## Tests and Maven
 
 - Use the Spring Boot test dependencies already declared in `pom.xml`; add a test dependency only when a test requires it.
+- Keep one focused test class/file per production class or component, following the production package layout under `src/test/java` (for example, `JobApplicationServiceTest` and `JobApplicationControllerTest`). Keep integration tests separate and clearly named.
 - Test web behavior at the MVC boundary and persistence behavior against the configured PostgreSQL-compatible schema where practical.
 - Use the Maven Wrapper so builds use the project's configured Maven version: `./mvnw test` and `./mvnw package`.
 - Official references: [Spring Boot testing](https://docs.spring.io/spring-boot/reference/testing/), [Maven Wrapper](https://maven.apache.org/wrapper/).

@@ -32,6 +32,7 @@ applyTo: '**/*.java, **/*.kt'
 - Package Structure: Organize by feature/domain rather than by layer
 - Separation of Concerns: Keep controllers thin, services focused, and repositories simple
 - Utility Classes: Make utility classes final with private constructors
+- Prefer Java records for immutable DTOs, including request and response DTOs. Put Bean Validation constraints on record components and use constructor binding at Spring MVC boundaries. Use a mutable DTO class only when the binding or update workflow specifically requires mutability, and keep JPA entities as classes rather than records.
 
 ### Service Layer
 
@@ -39,6 +40,12 @@ applyTo: '**/*.java, **/*.kt'
 - Services should be stateless and testable.
 - Inject repositories via the constructor.
 - Service method signatures should use domain IDs or DTOs, not expose repository entities directly unless necessary.
+
+### Test Organization
+
+- Create a separate test class/file for each production class or component; for example, use `JobApplicationServiceTest` for `JobApplicationService` and `JobApplicationControllerTest` for `JobApplicationController`.
+- Mirror the production package structure under `src/test/java`, and keep each test class focused on its corresponding component rather than collecting unrelated component tests into one file.
+- Use focused unit tests for service behavior, MVC slice tests for controller behavior, and separately named integration tests when verifying wiring or database interactions.
 
 ### Logging
 

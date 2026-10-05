@@ -2,6 +2,7 @@ package com.example.job_application_tracker.account;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.session.SessionInformation;
 import org.springframework.security.core.session.SessionRegistry;
@@ -26,13 +27,16 @@ public class AccountController {
 	private final AuthRateLimiter rateLimiter;
 	private final AuthThrottleProperties throttle;
 	private final SessionRegistry sessionRegistry;
+	private final boolean emailVerificationEnabled;
 
 	public AccountController(AccountService accountService, AuthRateLimiter rateLimiter,
-			AuthThrottleProperties throttle, SessionRegistry sessionRegistry) {
+			AuthThrottleProperties throttle, SessionRegistry sessionRegistry,
+			@Value("${app.auth.email-verification.enabled:true}") boolean emailVerificationEnabled) {
 		this.accountService = accountService;
 		this.rateLimiter = rateLimiter;
 		this.throttle = throttle;
 		this.sessionRegistry = sessionRegistry;
+		this.emailVerificationEnabled = emailVerificationEnabled;
 	}
 
 	@GetMapping("/login")
@@ -53,6 +57,7 @@ public class AccountController {
 
 	@GetMapping("/register")
 	public String registerPage(Model model) {
+		model.addAttribute("emailVerificationEnabled", emailVerificationEnabled);
 		model.addAttribute("form", new RegistrationForm("", "", "", "", ""));
 		model.addAttribute("formErrors", List.of());
 		model.addAttribute("emailErrors", List.of());
@@ -73,6 +78,7 @@ public class AccountController {
 			HttpServletRequest request,
 			Model model,
 			RedirectAttributes redirectAttributes) {
+		model.addAttribute("emailVerificationEnabled", emailVerificationEnabled);
 		if (!Objects.equals(form.password(), form.confirmPassword())) {
 			bindingResult.rejectValue("confirmPassword", "password.mismatch", "Passwords do not match.");
 		}

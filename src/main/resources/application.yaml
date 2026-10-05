@@ -34,6 +34,8 @@ app:
   mail:
     from: ${MAIL_FROM:no-reply@localhost}
   auth:
+    email-verification:
+      enabled: ${APP_EMAIL_VERIFICATION_ENABLED:true}
     throttling:
       enabled: ${AUTH_THROTTLING_ENABLED:true}
       login-per-ip: ${AUTH_LOGIN_PER_IP:20}

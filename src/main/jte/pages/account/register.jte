@@ -6,6 +6,7 @@
 @param java.util.List<String> passwordErrors
 @param java.util.List<String> confirmPasswordErrors
 @param boolean registrationSubmitted
+@param boolean emailVerificationEnabled
 @param org.springframework.security.web.csrf.CsrfToken csrfToken
 <!doctype html>
 <html lang="en">
@@ -17,7 +18,12 @@
         <h1 class="text-xl font-semibold">Create your account</h1>
         @if(registrationSubmitted)
             <p class="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">If the address can be registered, a
-                verification email will be sent shortly.</p>
+                @if(emailVerificationEnabled)
+                    verification email will be sent shortly.
+                @else
+                    your account is ready to sign in.
+                @endif
+            </p>
         @endif
         @if(!formErrors.isEmpty())
             <ul role="alert" aria-live="polite" class="mt-4 list-inside list-disc rounded-lg bg-rose-50 p-3 text-sm text-rose-700">

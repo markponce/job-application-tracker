@@ -1,5 +1,6 @@
 package com.example.job_application_tracker.account;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -22,16 +23,19 @@ public class AccountAuthenticationProvider implements AuthenticationProvider {
 	private final PasswordEncoder passwordEncoder;
 	private final AuthRateLimiter rateLimiter;
 	private final AuthThrottleProperties throttle;
+	private final boolean emailVerificationEnabled;
 
 	public AccountAuthenticationProvider(
 			UserAccountRepository users,
 			PasswordEncoder passwordEncoder,
 			AuthRateLimiter rateLimiter,
-			AuthThrottleProperties throttle) {
+			AuthThrottleProperties throttle,
+			@Value("${app.auth.email-verification.enabled:true}") boolean emailVerificationEnabled) {
 		this.users = users;
 		this.passwordEncoder = passwordEncoder;
 		this.rateLimiter = rateLimiter;
 		this.throttle = throttle;
+		this.emailVerificationEnabled = emailVerificationEnabled;
 	}
 
 	@Override
@@ -56,7 +60,7 @@ public class AccountAuthenticationProvider implements AuthenticationProvider {
 			throw new BadCredentialsException("Invalid email or password.");
 		}
 		UserAccount user = account.get();
-		if (!user.isEnabled()) {
+		if (emailVerificationEnabled && !user.isEnabled()) {
 			throw new DisabledException("Email verification is required.");
 		}
 		return UsernamePasswordAuthenticationToken.authenticated(user, null, user.getAuthorities());

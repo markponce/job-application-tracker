@@ -30,6 +30,7 @@ public class AccountService {
     private final AuthThrottleProperties throttle;
     private final String publicBaseUrl;
     private final String mailFrom;
+    private final boolean emailVerificationEnabled;
 
     public AccountService(
             UserAccountRepository users,
@@ -39,7 +40,8 @@ public class AccountService {
             AuthRateLimiter rateLimiter,
             AuthThrottleProperties throttle,
             @Value("${app.public-base-url:http://localhost:8080}") String publicBaseUrl,
-            @Value("${app.mail.from:no-reply@localhost}") String mailFrom) {
+            @Value("${app.mail.from:no-reply@localhost}") String mailFrom,
+            @Value("${app.auth.email-verification.enabled:true}") boolean emailVerificationEnabled) {
         this.users = users;
         this.tokens = tokens;
         this.passwordEncoder = passwordEncoder;
@@ -48,6 +50,7 @@ public class AccountService {
         this.throttle = throttle;
         this.publicBaseUrl = publicBaseUrl;
         this.mailFrom = mailFrom;
+        this.emailVerificationEnabled = emailVerificationEnabled;
     }
 
     public static String normalizeEmail(String email) {
@@ -66,7 +69,11 @@ public class AccountService {
 
         UserAccount user = users.save(new UserAccount(
                 email, passwordEncoder.encode(password), firstName, lastName));
-        sendVerification(user);
+        if (emailVerificationEnabled) {
+            sendVerification(user);
+        } else {
+            user.verifyEmail(OffsetDateTime.now());
+        }
         return true;
     }
 
@@ -92,6 +99,9 @@ public class AccountService {
 
     @Transactional
     public void resendVerification(String emailInput, String remoteAddress) {
+        if (!emailVerificationEnabled) {
+            return;
+        }
         rateLimiter.enforce(
                 "resend-ip",
                 remoteAddress,

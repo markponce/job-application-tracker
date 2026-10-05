@@ -25,6 +25,9 @@ public class AuthRateLimiter {
 	}
 
 	public void enforce(String action, String identity, int limit, Duration window) {
+		if (!throttle.isEnabled()) {
+			return;
+		}
 		Instant now = Instant.now();
 		long windowSeconds = window.toSeconds();
 		long bucketEpoch = now.getEpochSecond() / windowSeconds * windowSeconds;

@@ -35,6 +35,7 @@ app:
     from: ${MAIL_FROM:no-reply@localhost}
   auth:
     throttling:
+      enabled: ${AUTH_THROTTLING_ENABLED:true}
       login-per-ip: ${AUTH_LOGIN_PER_IP:20}
       login-per-account: ${AUTH_LOGIN_PER_ACCOUNT:10}
       registration-per-ip: ${AUTH_REGISTRATION_PER_IP:5}

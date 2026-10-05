@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Min;
 @Validated
 public class AuthThrottleProperties {
 
+	private boolean enabled = true;
 	@Min(1)
 	private int loginPerIp = 20;
 	@Min(1)
@@ -31,6 +32,8 @@ public class AuthThrottleProperties {
 	@Min(1)
 	private long resendWindowSeconds = 3600;
 
+	public boolean isEnabled() { return enabled; }
+	public void setEnabled(boolean value) { enabled = value; }
 	public int getLoginPerIp() { return loginPerIp; }
 	public void setLoginPerIp(int value) { loginPerIp = value; }
 	public int getLoginPerAccount() { return loginPerAccount; }

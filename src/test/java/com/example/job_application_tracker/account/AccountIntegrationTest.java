@@ -358,7 +358,9 @@ class AccountIntegrationTest {
 				.isEqualTo(2);
 		mockMvc.perform(login(EMAIL, PASSWORD))
 				.andExpect(status().isTooManyRequests())
-				.andExpect(header().exists("Retry-After"));
+				.andExpect(header().exists("Retry-After"))
+				.andExpect(content().string(org.hamcrest.Matchers.containsString(
+						"Too many sign-in attempts. Please wait before trying again.")));
 	}
 
 	@Test

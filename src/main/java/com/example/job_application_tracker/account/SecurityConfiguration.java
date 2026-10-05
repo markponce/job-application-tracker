@@ -70,8 +70,11 @@ public class SecurityConfiguration {
 			ThrottledAuthenticationException throttled = throttledException(exception);
 			if (throttled != null) {
 				response.setHeader("Retry-After", Long.toString(throttled.getRetryAfterSeconds()));
+				response.setHeader("Cache-Control", "no-store");
 				response.setStatus(429);
-				request.getRequestDispatcher("/login?throttled").forward(request, response);
+				response.setContentType("text/plain;charset=UTF-8");
+				response.getWriter().write("Too many sign-in attempts. Please wait before trying again. Sign in at "
+						+ request.getContextPath() + "/login.");
 				return;
 			}
 			response.sendRedirect(request.getContextPath() + "/login?error");

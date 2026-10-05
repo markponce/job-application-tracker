@@ -54,6 +54,30 @@ The Compose file starts Mailpit for local email testing. Open `http://localhost:
 
 Authentication throttles are backed by PostgreSQL so limits are shared across application instances. Per-IP buckets use the servlet request's remote address; configure the trusted reverse proxy so the app receives the real client address, and do not trust arbitrary forwarded headers. Limits and windows are configurable with `AUTH_LOGIN_PER_IP`, `AUTH_LOGIN_PER_ACCOUNT`, `AUTH_REGISTRATION_PER_IP`, `AUTH_VERIFICATION_PER_IP`, `AUTH_RESEND_PER_IP`, `AUTH_RESEND_PER_ACCOUNT` and their corresponding `*_WINDOW_SECONDS` variables. Requests over a limit receive HTTP 429 and `Retry-After`.
 
+## Deploy to Render
+
+The application can be deployed to Render as a [Docker web service](https://render.com/docs/docker) with a managed [Render Postgres database](https://render.com/docs/postgresql-creating-connecting). Render does not deploy this repository's Docker Compose stack: create the web service and database separately. The local Compose PostgreSQL and Mailpit services are for development only.
+
+1. Push the repository to a Git provider supported by Render. In the Render Dashboard, create a **PostgreSQL** database and a **Web Service** in the same region. Choose the database plan and web-service instance appropriate for your use; note that [Render's free services](https://render.com/docs/free) have limits and are not recommended for production.
+2. Create the web service from the repository, choose **Docker** as the runtime, and use the repository-root `Dockerfile`. Enable deploys from the desired branch.
+3. From the Render Postgres **Connect** or **Info** page, copy its internal host, database name, username, and password. Keep the web service in the database's region and configure these [environment variables](https://render.com/docs/configure-environment-variables):
+
+   | Key | Value |
+   | --- | --- |
+   | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://<internal-host>:5432/<database-name>` |
+   | `SPRING_DATASOURCE_USERNAME` | Render database username |
+   | `SPRING_DATASOURCE_PASSWORD` | Render database password |
+   | `APP_PUBLIC_BASE_URL` | `https://<your-service>.onrender.com` (or your custom HTTPS domain) |
+   | `SESSION_COOKIE_SECURE` | `true` |
+   | `GG_JTE_DEVELOPMENT_MODE` | `false` |
+   | `GG_JTE_USE_PRECOMPILED_TEMPLATES` | `true` |
+
+   The app binds to `0.0.0.0` and listens on Render's `PORT` environment variable (Render web services default to port `10000`; locally the fallback remains `8080`). `SERVER_ADDRESS` can override the bind address. Keep the database URL internal; don't expose database credentials in source control.
+4. Configure an SMTP provider for verification messages. Mailpit is not part of the Render deployment. Set `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and `MAIL_FROM` to the provider's SMTP values, plus `MAIL_SMTP_AUTH=true` and `MAIL_SMTP_STARTTLS=true` when required by that provider. Add credentials through the Render Dashboard's service environment settings, not in `render.yaml` or the repository. Use an address/domain authorized by the provider.
+5. Save environment variables and deploy. Flyway applies migrations during application startup. After deployment, open the `onrender.com` URL, register with a test account, and confirm the verification email arrives through the configured SMTP provider.
+
+**Data warning:** Flyway V3 deletes all rows currently in `job_applications` before adding required account ownership. A new Render database starts empty, but do not point this deployment at a database with application records you need to keep unless those records have been backed up and migrated appropriately. Render Postgres is managed separately from the web service; configure its backup/retention plan for production.
+
 ## Tests and build
 
 The Spring context integration test uses a PostgreSQL Testcontainers instance and requires Docker:

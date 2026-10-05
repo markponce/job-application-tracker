@@ -107,7 +107,7 @@ public class AccountService {
                 java.time.Duration.ofSeconds(throttle.getResendWindowSeconds())
         );
 
-//        users.findByEmail(email).filter(user -> !user.isEnabled()).ifPresent(this::sendVerification);
+        users.findByEmail(email).filter(user -> !user.isEnabled()).ifPresent(this::sendVerification);
     }
 
     @Transactional

@@ -360,7 +360,8 @@ class AccountIntegrationTest {
 				.andExpect(status().isTooManyRequests())
 				.andExpect(header().exists("Retry-After"))
 				.andExpect(content().string(org.hamcrest.Matchers.containsString(
-						"Too many sign-in attempts. Please wait before trying again.")));
+						"Too many sign-in attempts. Please wait before trying again.")))
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("/login")));
 	}
 
 	@Test

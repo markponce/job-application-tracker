@@ -1,26 +1,21 @@
 package com.example.job_application_tracker.jobapplication;
 
-import com.example.job_application_tracker.account.AccountProfile;
 import com.example.job_application_tracker.jobapplication.dto.JobApplicationForm;
 import com.example.job_application_tracker.jobapplication.dto.JobApplicationSearchCriteria;
 import com.example.job_application_tracker.jobapplication.dto.PageLink;
 import com.example.job_application_tracker.jobapplication.model.*;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -29,8 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.security.Principal;
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.security.web.csrf.CsrfToken;
 
 @Controller
 public class JobApplicationController {
@@ -162,15 +155,6 @@ public class JobApplicationController {
 		service.delete(principal.getName(), id);
 		redirectAttributes.addFlashAttribute("successMessage", "Application deleted.");
 		return "redirect:/applications";
-	}
-
-	@ExceptionHandler(EntityNotFoundException.class)
-	@ResponseStatus(HttpStatus.NOT_FOUND)
-	public String notFound(HttpServletRequest request, Model model) {
-		Object csrfToken = request.getAttribute(CsrfToken.class.getName());
-		model.addAttribute("csrfToken", csrfToken != null ? csrfToken : request.getAttribute("_csrf"));
-		model.addAttribute("accountProfile", AccountProfile.fromPrincipal(request.getUserPrincipal()));
-		return "pages/errors/404";
 	}
 
 	private void prepareForm(Model model, JobApplicationForm form, String pageTitle,

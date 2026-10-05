@@ -3,6 +3,7 @@ package com.example.job_application_tracker.jobapplication;
 import com.example.job_application_tracker.jobapplication.model.JobApplication;
 import com.example.job_application_tracker.jobapplication.dto.JobApplicationSearchCriteria;
 import com.example.job_application_tracker.jobapplication.model.*;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -203,6 +204,32 @@ class JobApplicationControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(view().name("pages/applications/show"))
 				.andExpect(content().string(org.hamcrest.Matchers.containsString("Example Co")));
+	}
+
+	@Test
+	void missingApplicationUsesGlobalNotFoundHandler() throws Exception {
+		UUID id = UUID.randomUUID();
+		when(service.getById("owner@example.com", id))
+				.thenThrow(new EntityNotFoundException("Job application not found: " + id));
+
+		mockMvc.perform(get("/applications/{id}", id))
+				.andExpect(status().isNotFound())
+				.andExpect(view().name("pages/errors/404"))
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("not found")));
+	}
+
+	@Test
+	void unexpectedApplicationErrorUsesGenericInternalServerErrorPage() throws Exception {
+		when(service.search(any(String.class), any(JobApplicationSearchCriteria.class), any(Pageable.class)))
+				.thenThrow(new IllegalStateException("Sensitive internal details"));
+
+		mockMvc.perform(get("/applications"))
+				.andExpect(status().isInternalServerError())
+				.andExpect(view().name("pages/errors/500"))
+				.andExpect(content().string(org.hamcrest.Matchers.containsString(
+						"We couldn't complete your request.")))
+				.andExpect(content().string(org.hamcrest.Matchers.not(
+						org.hamcrest.Matchers.containsString("Sensitive internal details"))));
 	}
 
 	@Test

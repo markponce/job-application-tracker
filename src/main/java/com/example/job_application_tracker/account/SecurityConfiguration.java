@@ -1,8 +1,12 @@
 package com.example.job_application_tracker.account;
 
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.authentication.ProviderManager;
@@ -11,11 +15,19 @@ import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.web.servlet.View;
+import org.springframework.web.servlet.ViewResolver;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 
 @Configuration
@@ -32,7 +44,8 @@ public class SecurityConfiguration {
 	SecurityFilterChain securityFilterChain(
 			HttpSecurity http,
 			AccountAuthenticationProvider authenticationProvider,
-			SessionRegistry sessionRegistry) throws Exception {
+			SessionRegistry sessionRegistry,
+			AuthenticationFailureHandler authenticationFailureHandler) throws Exception {
 		http
 				.authenticationManager(new ProviderManager(authenticationProvider))
 				.authorizeHttpRequests(authorize -> authorize
@@ -43,7 +56,7 @@ public class SecurityConfiguration {
 						.loginPage("/login")
 						.loginProcessingUrl("/login")
 						.usernameParameter("email")
-						.failureHandler(authenticationFailureHandler())
+						.failureHandler(authenticationFailureHandler)
 						.defaultSuccessUrl("/applications", true)
 						.permitAll())
 				.logout(logout -> logout
@@ -65,16 +78,14 @@ public class SecurityConfiguration {
 	}
 
 	@Bean
-	AuthenticationFailureHandler authenticationFailureHandler() {
+	AuthenticationFailureHandler authenticationFailureHandler(ViewResolver viewResolver) {
 		return (request, response, exception) -> {
 			ThrottledAuthenticationException throttled = throttledException(exception);
 			if (throttled != null) {
 				response.setHeader("Retry-After", Long.toString(throttled.getRetryAfterSeconds()));
 				response.setHeader("Cache-Control", "no-store");
 				response.setStatus(429);
-				response.setContentType("text/plain;charset=UTF-8");
-				response.getWriter().write("Too many sign-in attempts. Please wait before trying again. Sign in at "
-						+ request.getContextPath() + "/login.");
+				renderThrottledLogin(request, response, viewResolver);
 				return;
 			}
 			response.sendRedirect(request.getContextPath() + "/login?error");
@@ -100,5 +111,40 @@ public class SecurityConfiguration {
 			cause = cause.getCause();
 		}
 		return null;
+	}
+
+	private void renderThrottledLogin(
+			HttpServletRequest request,
+			HttpServletResponse response,
+			ViewResolver viewResolver) throws IOException, ServletException {
+		Object csrfToken = request.getAttribute(CsrfToken.class.getName());
+		if (csrfToken == null) {
+			csrfToken = request.getAttribute("_csrf");
+		}
+		if (!(csrfToken instanceof CsrfToken)) {
+			throw new ServletException("CSRF token is unavailable for the throttled login view");
+		}
+
+		Map<String, Object> model = new HashMap<>();
+		model.put("loginError", false);
+		model.put("loggedOut", false);
+		model.put("sessionExpired", false);
+		model.put("passwordChanged", false);
+		model.put("loginThrottled", true);
+		model.put("csrfToken", csrfToken);
+
+		Locale locale = LocaleContextHolder.getLocale();
+		View view;
+		try {
+			view = viewResolver.resolveViewName("pages/account/login", locale);
+			if (view == null) {
+				throw new ServletException("Login view could not be resolved");
+			}
+			view.render(model, request, response);
+		} catch (ServletException exception) {
+			throw exception;
+		} catch (Exception exception) {
+			throw new ServletException("Failed to render throttled login view", exception);
+		}
 	}
 }

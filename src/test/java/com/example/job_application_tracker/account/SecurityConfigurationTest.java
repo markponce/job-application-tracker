@@ -1,36 +1,47 @@
 package com.example.job_application_tracker.account;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.web.servlet.View;
+import org.springframework.web.servlet.ViewResolver;
+
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class SecurityConfigurationTest {
 
 	@Test
-	void throttledAuthenticationReturnsAResponseWithoutForwardingTheRequest() throws Exception {
-		AuthenticationFailureHandler handler = new SecurityConfiguration().authenticationFailureHandler();
+	void throttledAuthenticationRendersLoginViewWithTooManyRequestsStatus() throws Exception {
+		ViewResolver viewResolver = mock(ViewResolver.class);
+		View view = mock(View.class);
+		when(viewResolver.resolveViewName(eq("pages/account/login"), any(Locale.class)))
+				.thenReturn(view);
+		AuthenticationFailureHandler handler =
+				new SecurityConfiguration().authenticationFailureHandler(viewResolver);
 		MockHttpServletRequest mockRequest = new MockHttpServletRequest();
 		mockRequest.setContextPath("/tracker");
-		HttpServletRequest request = spy(mockRequest);
+		mockRequest.setAttribute(CsrfToken.class.getName(), mock(CsrfToken.class));
 		MockHttpServletResponse response = new MockHttpServletResponse();
 
-		handler.onAuthenticationFailure(request, response,
+		handler.onAuthenticationFailure(mockRequest, response,
 				new ThrottledAuthenticationException(new RateLimitExceededException(30)));
 
-		verify(request, never()).getRequestDispatcher("/login?throttled");
 		assertThat(response.getStatus()).isEqualTo(429);
 		assertThat(response.getHeader("Retry-After")).isEqualTo("30");
 		assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
-		assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
-		assertThat(response.getContentAsString())
-				.contains("Too many sign-in attempts. Please wait before trying again.")
-				.contains("/tracker/login");
+		verify(view).render(argThat(model -> Boolean.TRUE.equals(model.get("loginThrottled"))
+						&& model.get("csrfToken") instanceof CsrfToken),
+				same(mockRequest), same(response));
 	}
 }
